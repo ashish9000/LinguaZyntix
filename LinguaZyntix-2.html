@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LinguaZyntix — AI Voice Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #08090f; --s1: #111220; --s2: #191a2e;
+      --accent: #7c3aed; --cyan: #06b6d4; --gold: #f59e0b;
+      --green: #10b981; --red: #ef4444;
+      --text: #f0efff; --text2: #8b89c4; --text3: #3f3d6a;
+    }
+    html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+    .screen { position: fixed; inset: 0; display: none; flex-direction: column; overflow-y: auto; }
+    .screen.active { display: flex; }
+
+    /* SETUP */
+    #setup {
+      align-items: center; justify-content: center;
+      background: radial-gradient(ellipse 80% 50% at 50% -5%, rgba(124,58,237,.38) 0%, transparent 65%), var(--bg);
+    }
+    .setup-box { width: 100%; max-width: 400px; padding: 40px 22px 56px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+    .logo { width: 80px; height: 80px; border-radius: 50%; padding: 3px; background: conic-gradient(from 0deg, var(--accent), var(--cyan), var(--gold), var(--accent)); animation: spin 7s linear infinite; }
+    .logo-in { width: 100%; height: 100%; border-radius: 50%; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .app-name { font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 800; background: linear-gradient(135deg, #fff, var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .app-sub { font-size: 13px; color: var(--text2); text-align: center; }
+    .card { width: 100%; background: var(--s1); border-radius: 14px; padding: 16px; }
+    .card-lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; text-align: center; }
+    .pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .pill { padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--text3); background: transparent; color: var(--text2); font-size: 13px; font-family: inherit; cursor: pointer; transition: all .2s; }
+    .pill.on { border-color: var(--accent); background: rgba(124,58,237,.18); color: var(--text); }
+    .lvl-row { display: flex; gap: 8px; }
+    .lvl { flex: 1; padding: 10px 8px; border-radius: 10px; border: 1.5px solid var(--text3); background: transparent; color: var(--text2); font-size: 13px; font-family: inherit; cursor: pointer; transition: all .2s; text-align: center; line-height: 1.4; }
+    .lvl.on-b { border-color: var(--green); background: rgba(16,185,129,.12); color: var(--green); }
+    .lvl.on-i { border-color: var(--gold); background: rgba(245,158,11,.12); color: var(--gold); }
+    .name-inp { width: 100%; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--text3); background: var(--s1); color: var(--text); font-size: 15px; font-family: inherit; outline: none; transition: border-color .2s; }
+    .name-inp:focus { border-color: var(--accent); }
+    .name-inp::placeholder { color: var(--text3); }
+    .start-btn { width: 100%; padding: 15px; border-radius: 13px; border: none; background: linear-gradient(135deg, var(--accent), var(--cyan)); color: #fff; font-size: 16px; font-weight: 600; font-family: 'Syne', sans-serif; cursor: pointer; transition: transform .1s; }
+    .start-btn:active { transform: scale(.97); }
+    .hint { font-size: 11px; color: var(--text3); text-align: center; }
+
+    /* CHAT */
+    #chat { display: none; flex-direction: column; overflow: hidden; }
+    #chat.active { display: flex; }
+    .chat-hdr { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--s1); border-bottom: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
+    .back { width: 34px; height: 34px; border-radius: 9px; border: none; background: var(--s2); color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .hinfo { flex: 1; }
+    .hname { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+    .hsub { font-size: 11px; color: var(--text2); margin-top: 1px; display: flex; gap: 6px; align-items: center; }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+    .badge-b { background: rgba(16,185,129,.15); color: var(--green); }
+    .badge-i { background: rgba(245,158,11,.15); color: var(--gold); }
+    .spd-wrap { display: flex; gap: 4px; }
+    .spd { padding: 4px 9px; border-radius: 999px; font-size: 11px; border: 1px solid var(--text3); background: transparent; color: var(--text3); cursor: pointer; font-family: inherit; transition: all .15s; }
+    .spd.on { border-color: var(--cyan); background: rgba(6,182,212,.12); color: var(--cyan); }
+
+    /* MODE TOGGLE BAR */
+    .mode-bar {
+      display: flex; gap: 0; padding: 10px 14px; background: var(--s1);
+      border-bottom: 1px solid rgba(255,255,255,.05); flex-shrink: 0;
+      align-items: center; justify-content: space-between;
+    }
+    .mode-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+    .mode-toggle {
+      display: flex; background: var(--s2); border-radius: 999px; padding: 3px; gap: 2px;
+    }
+    .mode-btn {
+      padding: 7px 16px; border-radius: 999px; border: none; background: transparent;
+      color: var(--text3); font-size: 12px; font-family: inherit; cursor: pointer;
+      transition: all .2s; white-space: nowrap;
+    }
+    .mode-btn.active {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 2px 10px rgba(124,58,237,.4);
+    }
+    .mode-btn.active.auto-active {
+      background: linear-gradient(135deg, var(--cyan), #0e7490);
+      box-shadow: 0 2px 10px rgba(6,182,212,.4);
+    }
+
+    /* Silence countdown */
+    .silence-bar {
+      padding: 6px 14px; background: var(--s2); flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .silence-bar.hide { display: none; }
+    .silence-label { font-size: 11px; color: var(--text2); white-space: nowrap; }
+    .silence-track { flex: 1; height: 4px; background: var(--s1); border-radius: 999px; overflow: hidden; }
+    .silence-fill { height: 100%; border-radius: 999px; background: var(--cyan); transition: width .1s linear; width: 100%; }
+    .silence-num { font-size: 11px; color: var(--cyan); min-width: 20px; text-align: right; font-family: 'Syne', sans-serif; }
+
+    .msgs { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--s2) transparent; }
+    .msg { display: flex; gap: 9px; max-width: 90%; animation: up .3s ease; }
+    @keyframes up { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+    .msg.me { align-self: flex-end; flex-direction: row-reverse; }
+    .av { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+    .av.ai { background: linear-gradient(135deg, var(--accent), var(--cyan)); }
+    .av.me { background: var(--s2); }
+    .bub { padding: 11px 13px; border-radius: 13px 13px 13px 3px; border: 1px solid rgba(255,255,255,.05); background: var(--s1); font-size: 14px; line-height: 1.7; }
+    .msg.me .bub { background: rgba(124,58,237,.22); border-color: rgba(124,58,237,.3); border-radius: 13px 13px 3px 13px; }
+    .corr-box { margin-top: 10px; padding: 10px 12px; background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); border-radius: 10px; font-size: 13px; line-height: 1.6; }
+    .corr-label { font-size: 11px; font-weight: 600; color: var(--gold); margin-bottom: 4px; letter-spacing: .5px; }
+    .corr-wrong { color: var(--red); text-decoration: line-through; font-size: 13px; }
+    .corr-right { color: var(--green); font-size: 13px; font-weight: 500; }
+    .corr-explain { color: var(--text2); font-size: 12px; margin-top: 4px; }
+    .dots { display: flex; gap: 5px; padding: 4px 0; }
+    .dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); animation: dot 1.2s infinite; }
+    .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+    @keyframes dot { 0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1} }
+
+    .score-bar { display: flex; align-items: center; gap: 9px; padding: 6px 14px; background: var(--s2); flex-shrink: 0; }
+    .score-bar.hide { display: none; }
+    .strk { flex: 1; height: 5px; background: var(--s1); border-radius: 999px; overflow: hidden; }
+    .sfil { height: 100%; border-radius: 999px; transition: width .6s; background: var(--green); }
+    .snum { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--green); min-width: 28px; text-align: right; }
+
+    /* MIC AREA */
+    .mic-area { flex-shrink: 0; background: var(--s1); border-top: 1px solid rgba(255,255,255,.05); padding: 14px 16px 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .status-txt { font-size: 13px; color: var(--text2); text-align: center; min-height: 20px; transition: color .2s; }
+    .status-txt.listening { color: var(--red); }
+    .status-txt.speaking  { color: var(--cyan); }
+    .status-txt.thinking  { color: var(--gold); }
+    .status-txt.auto      { color: var(--cyan); }
+    .mic-wrap { position: relative; width: 80px; height: 80px; }
+    .mic-ring { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid rgba(124,58,237,.4); opacity: 0; }
+    .mic-wrap.listening .mic-ring { animation: ring 1s ease-out infinite; }
+    .mic-wrap.speaking  .mic-ring { border-color: rgba(6,182,212,.5); animation: ring .7s ease-out infinite; }
+    .mic-wrap.auto-on   .mic-ring { border-color: rgba(6,182,212,.4); animation: ring 1.5s ease-out infinite; }
+    @keyframes ring { 0%{transform:scale(1);opacity:.8}100%{transform:scale(1.6);opacity:0} }
+    .mic-btn { width: 80px; height: 80px; border-radius: 50%; border: none; background: linear-gradient(145deg, var(--accent), #9333ea); color: #fff; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 28px rgba(124,58,237,.5); transition: transform .1s, background .3s; position: relative; z-index: 1; }
+    .mic-btn:active { transform: scale(.91); }
+    .mic-btn.listening { background: linear-gradient(145deg, var(--red), #b91c1c); box-shadow: 0 6px 28px rgba(239,68,68,.5); }
+    .mic-btn.speaking  { background: linear-gradient(145deg, var(--cyan), #0e7490); box-shadow: 0 6px 28px rgba(6,182,212,.5); }
+    .mic-btn.auto-idle { background: linear-gradient(145deg, #0e7490, var(--cyan)); box-shadow: 0 6px 28px rgba(6,182,212,.4); }
+    .mic-hint-txt { font-size: 11px; color: var(--text3); text-align: center; }
+    .txt-row { display: flex; gap: 8px; width: 100%; }
+    .txt-in { flex: 1; padding: 10px 14px; border-radius: 999px; border: 1.5px solid var(--text3); background: var(--s2); color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color .2s; }
+    .txt-in:focus { border-color: var(--accent); }
+    .txt-in::placeholder { color: var(--text3); }
+    .send-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--s2); color: var(--text2); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .2s; }
+    .send-btn:hover { background: var(--accent); color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup" class="screen active">
+  <div class="setup-box">
+    <div class="logo"><div class="logo-in">🧠</div></div>
+    <h1 class="app-name">LinguaZyntix</h1>
+    <p class="app-sub">Real-time AI Voice Tutor • Speak and Learn</p>
+
+    <div class="card">
+      <p class="card-lbl">Language</p>
+      <div class="pills">
+        <button class="pill on" data-lang="English">🇬🇧 English</button>
+        <button class="pill" data-lang="Hindi">🇮🇳 Hindi</button>
+        <button class="pill" data-lang="Hinglish">🔀 Hinglish</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-lbl">Level</p>
+      <div class="lvl-row">
+        <button class="lvl on-b" data-level="beginner">🐢 Beginner<br><span style="font-size:11px;opacity:.7">Slow &amp; Simple</span></button>
+        <button class="lvl" data-level="intermediate">🚀 Intermediate<br><span style="font-size:11px;opacity:.7">Natural &amp; Fast</span></button>
+      </div>
+    </div>
+
+    <input class="name-inp" id="name-in" placeholder="Enter your name..." maxlength="20"/>
+    <button class="start-btn" id="start-btn">🎙️ Start Voice Tutor</button>
+    <p class="hint">⚠️ Use Chrome browser • Allow mic permission</p>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chat" class="screen">
+  <header class="chat-hdr">
+    <button class="back" id="back-btn">←</button>
+    <div class="hinfo">
+      <div class="hname" id="hname">Hi!</div>
+      <div class="hsub">
+        <span id="hlang" style="color:var(--cyan)">English</span>
+        <span id="hlevel" class="badge badge-b">Beginner</span>
+      </div>
+    </div>
+    <div class="spd-wrap">
+      <button class="spd on" data-r="0.8">🐢</button>
+      <button class="spd" data-r="1.0">🚶</button>
+      <button class="spd" data-r="1.2">🚀</button>
+    </div>
+  </header>
+
+  <!-- MODE TOGGLE -->
+  <div class="mode-bar">
+    <span class="mode-label">Conversation Mode</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-manual">🔘 Manual</button>
+      <button class="mode-btn" id="btn-auto">🔄 Auto</button>
+    </div>
+  </div>
+
+  <!-- SILENCE COUNTDOWN (auto mode only) -->
+  <div class="silence-bar hide" id="silence-bar">
+    <span class="silence-label">AI speaks in</span>
+    <div class="silence-track"><div class="silence-fill" id="silence-fill"></div></div>
+    <span class="silence-num" id="silence-num">60s</span>
+  </div>
+
+  <div class="msgs" id="msgs"></div>
+
+  <div class="score-bar hide" id="score-bar">
+    <span style="font-size:11px;color:var(--text2);white-space:nowrap">Pronunciation Score</span>
+    <div class="strk"><div class="sfil" id="sfil"></div></div>
+    <span class="snum" id="snum">0</span>
+  </div>
+
+  <div class="mic-area">
+    <div class="status-txt" id="status">Press the button below and start speaking 👇</div>
+    <div class="mic-wrap" id="mic-wrap">
+      <div class="mic-ring"></div>
+      <button class="mic-btn" id="mic-btn">🎙️</button>
+    </div>
+    <div class="mic-hint-txt" id="mic-hint">Tap to speak</div>
+    <div class="txt-row">
+      <input class="txt-in" id="txt-in" placeholder="Or type here..."/>
+      <button class="send-btn" id="send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════
+// GROQ KEY — replace with your key
+// Get free key at console.groq.com
+const GROQ_KEY = "YOUR_GROQ_KEY_HERE";
+// ═══════════════════════════════════
+
+const GROQ_API      = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL         = "llama-3.1-8b-instant";
+const SILENCE_LIMIT = 60; // seconds before AI auto-speaks
+
+let userName  = "Student";
+let lang      = "English";
+let level     = "beginner";
+let ttsRate   = 0.85;
+let history   = [];
+let recog     = null;
+let isListen  = false;
+let isSpeak   = false;
+let isAutoMode= false;
+let synth     = window.speechSynthesis;
+
+// Silence timer
+let silenceTimer    = null;
+let silenceInterval = null;
+let silenceLeft     = SILENCE_LIMIT;
+
+// DOM
+const micBtn      = document.getElementById("mic-btn");
+const micWrap     = document.getElementById("mic-wrap");
+const statusEl    = document.getElementById("status");
+const hintEl      = document.getElementById("mic-hint");
+const silenceBar  = document.getElementById("silence-bar");
+const silenceFill = document.getElementById("silence-fill");
+const silenceNum  = document.getElementById("silence-num");
+const msgsEl      = document.getElementById("msgs");
+const btnManual   = document.getElementById("btn-manual");
+const btnAuto     = document.getElementById("btn-auto");
+
+// ── SETUP ──
+document.querySelectorAll(".pill").forEach(p => {
+  p.addEventListener("click", () => {
+    document.querySelectorAll(".pill").forEach(x => x.classList.remove("on"));
+    p.classList.add("on"); lang = p.dataset.lang;
+  });
+});
+document.querySelectorAll(".lvl").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".lvl").forEach(x => x.classList.remove("on-b","on-i"));
+    level = b.dataset.level;
+    b.classList.add(level === "beginner" ? "on-b" : "on-i");
+    ttsRate = level === "beginner" ? 0.78 : 1.0;
+  });
+});
+document.querySelectorAll(".spd").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".spd").forEach(x => x.classList.remove("on"));
+    b.classList.add("on"); ttsRate = parseFloat(b.dataset.r);
+  });
+});
+
+document.getElementById("start-btn").addEventListener("click", () => {
+  if (GROQ_KEY === "YOUR_GROQ_KEY_HERE") {
+    alert("Please add your Groq API key in the HTML file.\nGet a free key at console.groq.com");
+    return;
+  }
+  userName = document.getElementById("name-in").value.trim() || "Student";
+  document.getElementById("hname").textContent = "Hi, " + userName + "!";
+  document.getElementById("hlang").textContent = lang;
+  const lb = document.getElementById("hlevel");
+  lb.textContent = level === "beginner" ? "Beginner" : "Intermediate";
+  lb.className   = "badge " + (level === "beginner" ? "badge-b" : "badge-i");
+  history = [];
+  showScreen("chat");
+  const intro = getIntro();
+  addAIBubble(intro, null);
+  speak(intro, () => { if (isAutoMode) startAutoListen(); });
+});
+
+document.getElementById("back-btn").addEventListener("click", () => {
+  stopAll();
+  history = [];
+  showScreen("setup");
+});
+
+function showScreen(n) {
+  document.getElementById("setup").classList.remove("active");
+  document.getElementById("chat").classList.remove("active");
+  document.getElementById(n).classList.add("active");
+}
+
+// ── MODE TOGGLE ──
+btnManual.addEventListener("click", () => {
+  if (!isAutoMode) return;
+  isAutoMode = false;
+  btnManual.classList.add("active"); btnManual.classList.remove("auto-active");
+  btnAuto.classList.remove("active","auto-active");
+  stopAll();
+  silenceBar.classList.add("hide");
+  setStatus("Press the button below and start speaking 👇", "");
+  hintEl.textContent = "Tap to speak";
+  micBtn.classList.remove("auto-idle");
+  micWrap.classList.remove("auto-on");
+});
+
+btnAuto.addEventListener("click", () => {
+  if (isAutoMode) return;
+  isAutoMode = true;
+  btnAuto.classList.add("active","auto-active");
+  btnManual.classList.remove("active");
+  silenceBar.classList.remove("hide");
+  setStatus("🔄 Auto mode — I'm listening continuously!", "auto");
+  hintEl.textContent = "Tap mic to pause auto mode";
+  startAutoListen();
+});
+
+// ── MIC BUTTON ──
+micBtn.addEventListener("click", () => {
+  if (isAutoMode) {
+    // In auto mode — tap to pause/resume
+    if (isListen) {
+      stopListen();
+      stopSilenceTimer();
+      silenceBar.classList.add("hide");
+      setStatus("Auto mode paused — tap mic to resume", "");
+      hintEl.textContent = "Tap to resume auto mode";
+      micBtn.classList.remove("auto-idle");
+    } else if (!isSpeak) {
+      silenceBar.classList.remove("hide");
+      startAutoListen();
+    }
+  } else {
+    // Manual mode
+    if (isSpeak) { synth.cancel(); isSpeak = false; setSpeakUI(false); }
+    if (isListen) stopListen();
+    else startListen();
+  }
+});
+
+// ── TEXT ──
+const txtIn = document.getElementById("txt-in");
+document.getElementById("send-btn").addEventListener("click", sendTxt);
+txtIn.addEventListener("keydown", e => { if (e.key === "Enter") sendTxt(); });
+function sendTxt() {
+  const t = txtIn.value.trim(); if (!t) return;
+  txtIn.value = "";
+  stopSilenceTimer();
+  handleInput(t, false, 1);
+}
+
+// ── AUTO MODE ──
+function startAutoListen() {
+  if (isSpeak) return; // wait for AI to finish
+  micBtn.classList.add("auto-idle");
+  micWrap.classList.add("auto-on");
+  setStatus("🔄 Listening... speak anytime!", "auto");
+  hintEl.textContent = "Tap mic to pause";
+  startSilenceTimer();
+  startListen(true); // true = auto mode
+}
+
+function startSilenceTimer() {
+  stopSilenceTimer();
+  silenceLeft = SILENCE_LIMIT;
+  updateSilenceUI();
+  silenceInterval = setInterval(() => {
+    silenceLeft -= 1;
+    updateSilenceUI();
+    if (silenceLeft <= 0) {
+      stopSilenceTimer();
+      // AI auto-speaks after silence
+      aiAutoSpeak();
+    }
+  }, 1000);
+}
+
+function stopSilenceTimer() {
+  if (silenceInterval) { clearInterval(silenceInterval); silenceInterval = null; }
+  if (silenceTimer)    { clearTimeout(silenceTimer);     silenceTimer    = null; }
+}
+
+function updateSilenceUI() {
+  const pct = (silenceLeft / SILENCE_LIMIT) * 100;
+  silenceFill.style.width = pct + "%";
+  silenceNum.textContent  = silenceLeft + "s";
+  const c = silenceLeft > 30 ? "var(--cyan)" : silenceLeft > 10 ? "var(--gold)" : "var(--red)";
+  silenceFill.style.background = c;
+  silenceNum.style.color       = c;
+}
+
+function aiAutoSpeak() {
+  stopListen();
+  const prompts = [
+    "It seems like you went quiet! Let me ask you something — what did you do today? Tell me in English!",
+    "I noticed you have been quiet for a while. Let me teach you something new! Do you know how to use the word 'however' in a sentence? Try using it!",
+    "You went silent! That is okay. Let me give you a topic — describe your favorite food in 3 sentences. Go ahead!",
+    "I am still here! Let us practice something — tell me about a place you want to visit. Use the words 'because' and 'also' in your answer!",
+    "No response yet — let me help! Try saying this sentence: 'I would like to improve my English because it helps me in my career.' Now you say something similar!"
+  ];
+  const msg = prompts[Math.floor(Math.random() * prompts.length)];
+  addAIBubble(msg, null);
+  speak(msg, () => {
+    if (isAutoMode) startAutoListen();
+  });
+}
+
+// ── RECOGNITION ──
+function startListen(autoMode) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setStatus("Please use Chrome for speech recognition", ""); return; }
+  recog = new SR();
+  recog.continuous     = false;
+  recog.interimResults = true;
+  recog.lang = (lang === "Hindi" || lang === "Hinglish") ? "hi-IN" : "en-IN";
+
+  recog.onstart = () => {
+    isListen = true;
+    if (!autoMode) {
+      micBtn.textContent = "⏹️";
+      micBtn.classList.add("listening"); micBtn.classList.remove("auto-idle");
+      micWrap.classList.add("listening"); micWrap.classList.remove("auto-on");
+      setStatus("Listening... speak now!", "listening");
+      hintEl.textContent = "Tap again to stop";
+    } else {
+      micBtn.classList.add("listening"); micBtn.classList.remove("auto-idle");
+      micWrap.classList.add("listening"); micWrap.classList.remove("auto-on");
+    }
+  };
+
+  recog.onresult = e => {
+    let interim = "", final = "", conf = 0;
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) { final += e.results[i][0].transcript; conf = e.results[i][0].confidence; }
+      else interim += e.results[i][0].transcript;
+    }
+    if (interim) {
+      setStatus('"' + interim + '"...', "listening");
+      // Reset silence timer when user is speaking
+      if (isAutoMode) startSilenceTimer();
+    }
+    if (final) {
+      stopSilenceTimer();
+      handleInput(final, true, conf);
+    }
+  };
+
+  recog.onerror = e => {
+    const m = { "no-speech": "No speech — try again.", "not-allowed": "Mic permission denied.", "network": "Network error." };
+    if (isAutoMode && e.error === "no-speech") {
+      // In auto mode, restart listening on no-speech
+      stopListenUI();
+      if (!isSpeak) startAutoListen();
+      return;
+    }
+    setStatus(m[e.error] || "Error: " + e.error, "");
+    stopListenUI();
+  };
+
+  recog.onend = () => {
+    stopListenUI();
+    // In auto mode, restart after end if not speaking and not manually paused
+    if (isAutoMode && !isSpeak && silenceInterval) {
+      setTimeout(() => { if (isAutoMode && !isSpeak) startListen(true); }, 300);
+    }
+  };
+
+  try { recog.start(); } catch(e) { setStatus("Could not start mic.", ""); }
+}
+
+function stopListen() {
+  if (recog) { try { recog.stop(); } catch(e){} recog = null; }
+  isListen = false; stopListenUI();
+}
+
+function stopListenUI() {
+  isListen = false;
+  micBtn.classList.remove("listening");
+  micWrap.classList.remove("listening");
+  if (!isAutoMode) {
+    micBtn.textContent = "🎙️";
+    if (!isSpeak) { setStatus("Press the button below and start speaking 👇",""); hintEl.textContent="Tap to speak"; }
+  } else {
+    micBtn.classList.add("auto-idle");
+    micWrap.classList.add("auto-on");
+    micBtn.textContent = "🎙️";
+  }
+}
+
+function stopAll() {
+  stopListen();
+  stopSilenceTimer();
+  synth.cancel();
+  isSpeak = false; isAutoMode = false;
+  btnManual.classList.add("active"); btnAuto.classList.remove("active","auto-active");
+  silenceBar.classList.add("hide");
+  setSpeakUI(false);
+}
+
+// ── HANDLE INPUT ──
+async function handleInput(text, fromVoice, conf) {
+  if (!text) return;
+  stopListen();
+  stopSilenceTimer();
+  addUserBubble(text);
+  if (fromVoice && conf) showScore(conf);
+  const tid = addTyping();
+  setStatus("Thinking...", "thinking");
+
+  history.push({ role: "user", content: text });
+  if (history.length > 20) history = history.slice(-20);
+
+  try {
+    const res = await fetch(GROQ_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + GROQ_KEY },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 500, temperature: 0.7,
+        messages: [{ role: "system", content: buildSystem() }, ...history]
+      })
+    });
+    const data = await res.json();
+    removeTyping(tid);
+    if (data.error) { addAIBubble("API Error: " + data.error.message, null); setStatus("Error.", ""); return; }
+
+    const raw = data.choices[0].message.content;
+    history.push({ role: "assistant", content: raw });
+    const p = parseResp(raw);
+    addAIBubble(p.message, p.correction);
+
+    let fullSpeak = p.speak || p.message;
+    if (p.correction && p.correction.speak) fullSpeak += " ... " + p.correction.speak;
+
+    speak(fullSpeak, () => {
+      if (isAutoMode) startAutoListen();
+      else { setStatus("Your turn — press mic to speak! 🎙️",""); hintEl.textContent="Tap to speak"; }
+    });
+
+  } catch(err) {
+    removeTyping(tid);
+    addAIBubble("Network error! Check your internet connection.", null);
+    setStatus("Error.", "");
+  }
+}
+
+// ── SYSTEM PROMPT ──
+function buildSystem() {
+  const lvlNote = level === "beginner"
+    ? "The user is a BEGINNER. Use very simple words and short sentences. Be very encouraging."
+    : "The user is INTERMEDIATE. Use natural vocabulary, gentle challenges.";
+
+  const base = {
+    English: `You are an expert AI English speaking tutor. ${lvlNote}
+YOUR JOB: Have natural, engaging English conversation while ACTIVELY correcting ALL grammar mistakes.
+CORRECTION RULES:
+- Identify EVERY grammar mistake the user makes
+- Say the correct version clearly  
+- Briefly explain WHY it was wrong
+- Be warm and encouraging — never harsh
+- Respond in ENGLISH ONLY — no Hindi, no Urdu, no other language
+- Natural conversational English — no markdown, no bullet points
+- Ask interesting follow-up questions to keep conversation going
+- 2-4 sentences max for the main response
+User name: ${userName}`,
+
+    Hindi: `Aap ek expert AI Hindi tutor hain. ${lvlNote}
+SIRF HINDI mein jawab dein. Galtiyan clearly correct karein. Warm aur encouraging rahein.
+User: ${userName}`,
+
+    Hinglish: `You are an expert AI Hinglish tutor. ${lvlNote}
+Respond in natural Hinglish only. Correct ALL mistakes clearly. Be warm and friendly.
+User: ${userName}`
+  };
+
+  return base[lang] + `
+
+RESPOND ONLY IN THIS JSON FORMAT:
+{
+  "message": "Your conversational response (2-4 sentences, ask follow-up question)",
+  "correction": {
+    "hasError": true or false,
+    "wrong": "exactly what user said wrong or null",
+    "right": "the correct version or null",
+    "explain": "brief simple explanation or null",
+    "speak": "spoken correction text e.g. 'You said X but correct is Y because Z' or null"
+  },
+  "fb": "good/warn/bad",
+  "speak": "clean version of message for speech (no emojis)"
+}`;
+}
+
+// ── PARSE ──
+function parseResp(text) {
+  try {
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      const p = JSON.parse(m[0]);
+      return { message: p.message||text, correction: p.correction||null, fb: p.fb||null, speak: p.speak||p.message||text };
+    }
+  } catch(e) {}
+  return { message: text, correction: null, fb: null, speak: text };
+}
+
+// ── TTS ──
+function speak(text, onDone) {
+  if (!synth || !text) { if (onDone) onDone(); return; }
+  synth.cancel();
+  const clean = text.replace(/[\u{1F300}-\u{1FAFF}]/gu,"").replace(/[*_`#\[\]{}]/g,"").replace(/\s+/g," ").trim();
+  if (!clean) { if (onDone) onDone(); return; }
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang  = (lang==="Hindi"||lang==="Hinglish") ? "hi-IN" : "en-IN";
+  utter.rate  = ttsRate; utter.pitch = 1.05;
+  const voices = synth.getVoices();
+  const v = voices.find(v => v.lang==="en-IN" || v.name.toLowerCase().includes("india") || (v.name.toLowerCase().includes("google") && v.lang.startsWith("en")));
+  if (v) utter.voice = v;
+  utter.onstart = () => { isSpeak = true; setSpeakUI(true); };
+  utter.onend   = () => { isSpeak = false; setSpeakUI(false); if (onDone) onDone(); };
+  utter.onerror = () => { isSpeak = false; setSpeakUI(false); if (onDone) onDone(); };
+  synth.speak(utter);
+}
+
+function setSpeakUI(on) {
+  if (on) {
+    micBtn.textContent = "🔊"; micBtn.classList.add("speaking"); micBtn.classList.remove("auto-idle");
+    micWrap.classList.add("speaking"); micWrap.classList.remove("auto-on");
+    setStatus("AI is speaking... (tap to interrupt)", "speaking");
+    hintEl.textContent = "Tap mic to interrupt";
+  } else {
+    micBtn.classList.remove("speaking");
+    micBtn.textContent = "🎙️";
+    micWrap.classList.remove("speaking");
+    if (!isAutoMode) { setStatus("Your turn — press mic to speak! 🎙️",""); hintEl.textContent="Tap to speak"; }
+    else { setStatus("🔄 Listening... speak anytime!", "auto"); hintEl.textContent="Tap mic to pause"; }
+  }
+}
+
+// ── BUBBLES ──
+function addUserBubble(text) {
+  const d = document.createElement("div"); d.className="msg me";
+  d.innerHTML='<div class="av me">👤</div><div class="bub">'+esc(text)+'</div>';
+  msgsEl.appendChild(d); scroll();
+}
+
+function addAIBubble(msg, correction) {
+  const d = document.createElement("div"); d.className="msg";
+  let corrHtml = "";
+  if (correction && correction.hasError && correction.wrong) {
+    corrHtml = `<div class="corr-box">
+      <div class="corr-label">✏️ CORRECTION</div>
+      <div style="margin-bottom:4px">
+        <span class="corr-wrong">${esc(correction.wrong)}</span>
+        <span style="color:var(--text3);margin:0 6px">→</span>
+        <span class="corr-right">${esc(correction.right||"")}</span>
+      </div>
+      ${correction.explain ? '<div class="corr-explain">'+esc(correction.explain)+'</div>' : ""}
+    </div>`;
+  }
+  d.innerHTML='<div class="av ai">🤖</div><div class="bub">'+esc(msg)+corrHtml+'</div>';
+  msgsEl.appendChild(d); scroll();
+}
+
+let tc=0;
+function addTyping() {
+  const id="ty"+(++tc), d=document.createElement("div"); d.className="msg"; d.id=id;
+  d.innerHTML='<div class="av ai">🤖</div><div class="bub"><div class="dots"><span></span><span></span><span></span></div></div>';
+  msgsEl.appendChild(d); scroll(); return id;
+}
+function removeTyping(id) { const e=document.getElementById(id); if(e) e.remove(); }
+function scroll() { setTimeout(()=>{ msgsEl.scrollTop=msgsEl.scrollHeight; },60); }
+
+function showScore(conf) {
+  const s=Math.round(conf*100), sb=document.getElementById("score-bar");
+  sb.classList.remove("hide");
+  document.getElementById("snum").textContent=s;
+  document.getElementById("sfil").style.width=s+"%";
+  const c=s>=80?"#10b981":s>=50?"#f59e0b":"#ef4444";
+  document.getElementById("sfil").style.background=c;
+  document.getElementById("snum").style.color=c;
+}
+
+function getIntro() {
+  if (lang==="English") return "Hello "+userName+"! I am your AI English voice tutor. You can use Manual mode — press mic to speak, or switch to Auto mode — I will listen continuously and speak automatically if you go quiet. Let us start! Tell me something about yourself.";
+  if (lang==="Hindi")   return "Namaste "+userName+"! Main aapka AI Hindi tutor hoon. Manual mode mein mic press karke boliye, ya Auto mode mein main continuously sunta rahuunga. Shuru karte hain — apne baare mein kuch batayein!";
+  return "Hey "+userName+"! I am your AI tutor. Use Manual mode — press mic to talk, or Auto mode — I listen continuously. Let us start — tell me something about yourself!";
+}
+
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
+if (synth && synth.onvoiceschanged !== undefined) synth.onvoiceschanged = () => synth.getVoices();
+</script>
+</body>
+</html>
